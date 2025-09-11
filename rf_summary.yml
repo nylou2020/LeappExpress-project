@@ -1,0 +1,39 @@
+---
+  - name: Compile Leapp Risk Factors summary
+    ansible.builtin.script:
+      cmd: /home/student/projects/LeapExpress/Rpt_Stats.sh
+    become: true
+
+  - name: Read last line of remote file
+    ansible.builtin.command: tail -1 /var/log/leapp/RF_Summary.txt
+    register: lastline_output
+
+  - name: Display last line of remote file
+    ansible.builtin.debug:
+      var: lastline_output.stdout
+
+  - name: Parse the lastline to get Host Tier level
+    ansible.builtin.shell: "echo '{{ lastline_output.stdout }}' | tee -a /tmp/All_rpt.lof | awk '{print $4}'"
+    register: tier_level 
+
+  - name: Display the risk factor tier level
+    ansible.builtin.debug:
+      var: tier_level.stdout
+
+  - name: Triggering non-Tier3 OS upgrade
+    block:
+      - name: Display tier level that triggers OS upgrade
+        ansible.builtin.command: tail -1 /var/log/leapp/RF_Summary.txt
+        become: true
+        register: rf_summary
+
+      - name: Display host tier level that triggers OS upgrade
+        ansible.builtin.debug:
+          msg: "The host, {{ ansible_hostname }}, has {{ tier_level.stdout }} status. Proceed with OS upgrade."
+
+####  add code here for the os upgrade  ###
+###   1.  add/include  tasks from postgres_dumpall.yml
+###   2.  add upgrade.yml  <<--- here add logic to skip Tier 3 status
+###   3.  create a workflow job template
+
+    when: tier_level.stdout != "Tier3"
