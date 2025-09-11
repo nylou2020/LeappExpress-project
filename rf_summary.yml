@@ -1,7 +1,7 @@
 ---
 - name: Compile Leapp Risk Factors summary
   ansible.builtin.script:
-    cmd: /home/student/projects/LeapExpress/Rpt_Stats.sh
+    cmd: Rpt_Stats.sh
   become: true
 
 - name: Read last line of remote file
