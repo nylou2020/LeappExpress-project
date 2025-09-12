@@ -37,50 +37,33 @@
 
         - name: Chk if postgresql-server is ready for dumpall backup
           block:
+            - name: Chk backup dir exists
+              ansible.builtin.file:
+                path: "{{ backup_dir }}"
+                state: directory
+                owner: postgres
+                group: postgres
+                mode: 1777
 
-          - name: Gather service facts
-            ansible.builtin.service_facts:
+            - name: Execute pg_dumpall
+              ansible.builtin.shell: pg_dumpall -f {{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql
+              args:
+                creates: "{{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql"
+              register: pg_dumpall_result
+              become: true
+              become_user: postgres
 
-          - name: Debug Postgresql service state
-            ansible.builtin.debug:
-              msg: "Postgresql service state is: {{ ansible_facts.services['postgresql.service'].state }}"
-            when: "'postgresql.service' in ansible_facts.services"
+            - name: Display pg_dumpall result
+              ansible.builtin.debug:
+                var: pg_dumpall_result
 
-          - name: Debug Postgresql service state
-            ansible.builtin.debug:
-              msg: "Postgresql service is not defined or disabled"
-            when: "'postgresql.service' not in ansible_facts.services"
-
-          - name: Checking postgresql-service is ready for dumpall backup
-            block:
-              - name: Chk backup dir exists
-                ansible.builtin.file:
-                  path: "{{ backup_dir }}"
-                  state: directory
-                  mode: 0777
-                  owner: postgres
-                  group: postgres
-
-              - name: Execute pg_dumpall
-                ansible.builtin.shell:
-                  cmd: pg_dumpall -f {{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql
-                  args:
-                  creates: "{{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql"
-                  register: pg_dumpall_result
-                  become: true
-                  become_user: postgres
-
-              - name: Display pg_dumpall result
-                ansible.builtin.debug:
-                  var: pg_dumpall_result
-
-              - name: Stop and disable the postgresql service
-                ansible.builtin.service:
-                  name: postgresql.service
-                  state: stopped
-                  enabled: no
-                when:
-                  - "'postgresql.service' in ansible_facts.services"
-                  - ansible_facts.services['postgresql.service'].state == 'running'
+            - name: Stop and disable the postgresql service
+              ansible.builtin.service:
+                name: postgresql.service
+                state: stopped
+                enabled: no
+          when:
+            - "'postgresql.service' in ansible_facts.services"
+            - ansible_facts.services['postgresql.service'].state == 'running'
 
       when: "'postgresql-server' in ansible_facts.packages"
