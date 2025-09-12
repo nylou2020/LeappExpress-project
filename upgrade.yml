@@ -7,53 +7,73 @@
   # vars:
   #   ansible_python_interpreter: /usr/libexec/platform-python
   tasks:
-    - name: Upgrade block
+    - name: Read last line of remote file
+      ansible.builtin.command: tail -1 /var/log/leapp/RF_Summary.txt
+      register: lastline_output
+
+    - name: Display last line of remote file
+      ansible.builtin.debug:
+        var: lastline_output.stdout
+
+    - name: Parse the lastline to get Host Tier level
+      ansible.builtin.shell: "echo '{{ lastline_output.stdout }}' | awk '{print $4}'"
+      register: tier_level 
+
+    - name: Display the risk factor tier level
+      ansible.builtin.debug:
+        var: tier_level.stdout
+
+    - name: Non-Tier3 Upgrade block
       block:
-        - name: Perform OS upgrade
-          ansible.builtin.import_role:
-            name: infra.leapp.upgrade
-
-      always:
-        - name: Log upgrade status
-          when: splunk_hectoken is defined
+        - name: Upgrade block
           block:
-            - name: Gather EC2 metadata facts
-              amazon.aws.ec2_metadata_facts:
-              delegate_to: localhost
-              become: false
-              ignore_errors: true
-              when: ansible_system_vendor == "Amazon EC2" or ansible_system_vendor == "Xen"
+            - name: Perform OS upgrade
+              ansible.builtin.import_role:
+                name: infra.leapp.upgrade
 
-            - name: Send event to Splunk
-              ansible.builtin.uri:
-                url: "{{ splunk_url }}"
-                headers:
-                  Authorization: "Splunk {{ splunk_hectoken }}"
-                method: POST
-                body:
-                  sourcetype: _json
-                  index: "{{ splunk_index }}"
-                  event:
-                    event_type: playbook_run
-                    hostname: "{{ ansible_facts.hostname }}"
-                    job_id: "{{ awx_job_id | default('undefined') }}"
-                    os_version: "{{ ansible_facts.distribution_version }}"
-                    pet_app_env: "{{ ['Dev','Test','Prod'] | random(seed=ansible_facts.hostname) }}"
-                    pet_app_team: "{{ ['Bird','Cat','Dog','Fish','Hamster','Lizard','Snake'] | random(seed=ansible_facts.hostname) }}"
-                    region: "{{ ansible_ec2_placement_region | default('undefined') }}"
-                    play_name: "{{ ansible_play_name }}"
-                    success: "{{ leapp_upgrade_success | default(false) }}"
-                body_format: json
-                return_content: true
-              delegate_to: localhost
-              become: false
-              changed_when: false
-              ignore_errors: true
-              register: splunk_send
-              no_log: true
+          always:
+            - name: Log upgrade status
+              when: splunk_hectoken is defined
+              block:
+                - name: Gather EC2 metadata facts
+                  amazon.aws.ec2_metadata_facts:
+                  delegate_to: localhost
+                  become: false
+                  ignore_errors: true
+                  when: ansible_system_vendor == "Amazon EC2" or ansible_system_vendor == "Xen"
 
-            - name: Show send result
-              ansible.builtin.debug:
-                var: splunk_send
-              when: splunk_send | default(false)
+                - name: Send event to Splunk
+                  ansible.builtin.uri:
+                    url: "{{ splunk_url }}"
+                    headers:
+                      Authorization: "Splunk {{ splunk_hectoken }}"
+                    method: POST
+                    body:
+                      sourcetype: _json
+                      index: "{{ splunk_index }}"
+                      event:
+                        event_type: playbook_run
+                        hostname: "{{ ansible_facts.hostname }}"
+                        job_id: "{{ awx_job_id | default('undefined') }}"
+                        os_version: "{{ ansible_facts.distribution_version }}"
+                        pet_app_env: "{{ ['Dev','Test','Prod'] | random(seed=ansible_facts.hostname) }}"
+                        pet_app_team: "{{ ['Bird','Cat','Dog','Fish','Hamster','Lizard','Snake'] | random(seed=ansible_facts.hostname) }}"
+                        region: "{{ ansible_ec2_placement_region | default('undefined') }}"
+                        play_name: "{{ ansible_play_name }}"
+                        success: "{{ leapp_upgrade_success | default(false) }}"
+                    body_format: json
+                    return_content: true
+                  delegate_to: localhost
+                  become: false
+                  changed_when: false
+                  ignore_errors: true
+                  register: splunk_send
+                  no_log: true
+
+                - name: Show send result
+                  ansible.builtin.debug:
+                    var: splunk_send
+                  when: splunk_send | default(false)
+
+      when: tier_level.stdout != "Tier3"
 ...

@@ -7,22 +7,47 @@
     LC_ALL: en_US.UTF-8
     TERM: linux
   tasks:
-    - ansible.builtin.set_fact:
-        snapshot_create_set_name: "{{ snapshot_set_name }}"
-        snapshot_remove_set_name: "{{ snapshot_set_name }}"
-        snapshot_revert_set_name: "{{ snapshot_set_name }}"
 
-    - name: "Execute snapshot check"
-      ansible.builtin.include_role:
-        name: "infra.lvm_snapshots.snapshot_create"
-      vars:
-        snapshot_create_check_only: true
-        # Additional snapshot_* vars provided via AAP2 job template and associated surveys
-      when: lvm_snapshots_action == "check"
+    - name: Read last line of remote file
+      ansible.builtin.command: tail -1 /var/log/leapp/RF_Summary.txt
+      register: lastline_output
 
-    - name: "Execute snapshot {{ lvm_snapshots_action }}"
-      ansible.builtin.include_role:
-        name: "infra.lvm_snapshots.snapshot_{{ lvm_snapshots_action }}"
-        # Additional snapshot_* vars provided via AAP2 job template and associated surveys
-      when: (lvm_snapshots_action == "create") or (lvm_snapshots_action == "remove") or (lvm_snapshots_action == "revert")
+    - name: Display last line of remote file
+      ansible.builtin.debug:
+        var: lastline_output.stdout
+
+    - name: Parse the lastline to get Host Tier level
+      ansible.builtin.shell: "echo '{{ lastline_output.stdout }}' | awk '{print $4}'"
+      register: tier_level
+
+    - name: Display the risk factor tier level
+      ansible.builtin.debug:
+        var: tier_level.stdout
+
+    - name: Non-Tier3 status trigger for OS upgrade
+      block:
+        - name: Display host tier level that triggers OS upgrade
+          ansible.builtin.debug:
+            msg: "The host, {{ ansible_hostname }}, has {{ tier_level.stdout }} status. Proceeding with OS upgrade."
+
+        - ansible.builtin.set_fact:
+            snapshot_create_set_name: "{{ snapshot_set_name }}"
+            snapshot_remove_set_name: "{{ snapshot_set_name }}"
+            snapshot_revert_set_name: "{{ snapshot_set_name }}"
+
+        - name: "Execute snapshot check"
+          ansible.builtin.include_role:
+            name: "infra.lvm_snapshots.snapshot_create"
+          vars:
+            snapshot_create_check_only: true
+            # Additional snapshot_* vars provided via AAP2 job template and associated surveys
+          when: lvm_snapshots_action == "check"
+
+        - name: "Execute snapshot {{ lvm_snapshots_action }}"
+          ansible.builtin.include_role:
+            name: "infra.lvm_snapshots.snapshot_{{ lvm_snapshots_action }}"
+            # Additional snapshot_* vars provided via AAP2 job template and associated surveys
+          when: (lvm_snapshots_action == "create") or (lvm_snapshots_action == "remove") or (lvm_snapshots_action == "revert")
+
+      when: tier_level.stdout != "Tier3"
 ...
