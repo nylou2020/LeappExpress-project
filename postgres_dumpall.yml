@@ -46,9 +46,9 @@
                 mode: 1777
 
             - name: Execute pg_dumpall
-              ansible.builtin.shell: pg_dumpall -f {{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql
+              ansible.builtin.shell: pg_dumpall -f {{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601_basic_short }}.sql
               args:
-                creates: "{{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql"
+                creates: "{{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601_basic_short }}.sql"
               register: pg_dumpall_result
               become: true
               become_user: postgres
