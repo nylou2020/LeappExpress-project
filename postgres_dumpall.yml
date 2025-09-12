@@ -1,0 +1,86 @@
+---
+- name: postgres dumpall if applicable
+  hosts: "{{ rhel_inventory_group | default(omit) }}"
+  become: true
+  vars:
+    backup_dir: "/tmp/backup_dir"
+
+  tasks:
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: auto # Automatically detect the package manager (yum/dnf for RHEL)
+
+    - name: Check if postgresql-server pkg is installed
+      ansible.builtin.debug:
+        msg: "The postgresql-server package is installed."
+      when: "'postgresql-server' in ansible_facts.packages"
+
+    - name: Indicate postgresql-server pkg is not installed
+      ansible.builtin.debug:
+        msg: "The postgresql-server package is NOT installed."
+      when: "'postgresql-server' not in ansible_facts.packages"
+
+    - name: Checking postgresql-service is ready for dumpall backup
+      block:
+        - name: Gather service facts
+          ansible.builtin.service_facts:
+
+        - name: Debug Postgresql service state if service exists.
+          ansible.builtin.debug:
+            msg: "Postgresql service state is: {{ ansible_facts.services['postgresql.service'].state }}"
+          when: "'postgresql.service' in ansible_facts.services"
+
+        - name: Debug Postgresql service state if service does not exist.
+          ansible.builtin.debug:
+            msg: "Postgresql service is not defined or disabled"
+          when: "'postgresql.service' not in ansible_facts.services"
+
+        - name: Chk if postgresql-server is ready for dumpall backup
+          block:
+
+          - name: Gather service facts
+            ansible.builtin.service_facts:
+
+          - name: Debug Postgresql service state
+            ansible.builtin.debug:
+              msg: "Postgresql service state is: {{ ansible_facts.services['postgresql.service'].state }}"
+            when: "'postgresql.service' in ansible_facts.services"
+
+          - name: Debug Postgresql service state
+            ansible.builtin.debug:
+              msg: "Postgresql service is not defined or disabled"
+            when: "'postgresql.service' not in ansible_facts.services"
+
+          - name: Checking postgresql-service is ready for dumpall backup
+            block:
+              - name: Chk backup dir exists
+                ansible.builtin.file:
+                  path: "{{ backup_dir }}"
+                  state: directory
+                  mode: 0777
+                  owner: postgres
+                  group: postgres
+
+              - name: Execute pg_dumpall
+                ansible.builtin.shell:
+                  cmd: pg_dumpall -f {{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql
+                  args:
+                  creates: "{{ backup_dir }}/pg_dumpall_backup_{{ ansible_date_time.iso8601 }}.sql"
+                  register: pg_dumpall_result
+                  become: true
+                  become_user: postgres
+
+              - name: Display pg_dumpall result
+                ansible.builtin.debug:
+                  var: pg_dumpall_result
+
+              - name: Stop and disable the postgresql service
+                ansible.builtin.service:
+                  name: postgresql.service
+                  state: stopped
+                  enabled: no
+                when:
+                  - "'postgresql.service' in ansible_facts.services"
+                  - ansible_facts.services['postgresql.service'].state == 'running'
+
+      when: "'postgresql-server' in ansible_facts.packages"
