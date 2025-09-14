@@ -83,7 +83,7 @@ OSver=`grep VERSION_ID /etc/os-release | cut -d\" -f2`
 #####################
 if [ ! -s $OutFile ]; then
    # File does't exist or at size 0 bytes. Add header lines to file.
-   ( printf "%34s %15s\n" OS Inhi- ) | tee -a $OutFile
-   ( printf "%-15s %-15s %-5s %-6s %-7s %-5s %-5s %-5s %s\n" Date/Time Hostname Ver Tier bitor High Med Low Info ) > $OutFile
+   ( printf "%34s %15s\n" OS Inhi- ) > $OutFile
+   ( printf "%-15s %-15s %-5s %-6s %-7s %-5s %-5s %-5s %s\n" Date/Time Hostname Ver Tier bitor High Med Low Info ) >> $OutFile
 fi
 ( printf "%15s %-15s %-5s Tier%-2s %-7s %-5s %-5s %-5s %s \n" $DateTime $Host $OSver $Tier $InhibCnt $HighCnt $MedCnt $LowCnt $InfoCnt ) | tee -a $OutFile
