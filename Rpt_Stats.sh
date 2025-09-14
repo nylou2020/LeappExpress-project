@@ -2,7 +2,7 @@
 #echo "Tier Definition:"
 #echo " Tier0 - no risk factors detected in the leapp-report file."
 #echo " Tier1 - 1 or more low / info risk factors detected and"
-#echo "          no inhibitors & no high risk factors in the leapp-report file."
+#echo "          no inhibitor, no high, no med risk factors in the leapp-report file."
 #echo " Tier2 - 1 or more high / med risk factors detected in the leapp-report file"
 #echo "          and no inhibitors factors detected in the leapp-report file."
 #echo " Tier3 - 1 or more inhibitor risk factors detected in the leapp-report file."
