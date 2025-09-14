@@ -104,7 +104,7 @@
             var: splunk_send
           when: splunk_send | default(false)
 
-          #####  Include a task below. It will run a shell script on remote node  #####
+          # Run shell script on remote node to summarize all risk factors.
         - name: Compile RF Summary
           ansible.builtin.include_tasks: rf_summary.yml
 ...
