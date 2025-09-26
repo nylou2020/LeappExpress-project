@@ -2,8 +2,6 @@
 - name: postgres dumpall if applicable
   hosts: "{{ rhel_inventory_group | default(omit) }}"
   become: true
-# vars:
-#   backup_dir: "/tmp/backup_dir"
 
   tasks:
     - name: Gather package facts
